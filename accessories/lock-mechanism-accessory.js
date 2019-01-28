@@ -76,17 +76,12 @@ CBusLockAccessory.prototype.setState = function(lockState, callback, context) {
 		} else if (lockState) {
 			const newLevel = lockState ? this.checkState : 0;
 			this._log(FILE_ID, `setState(true)`, `changing to 'on'`);
-			this.client.setLevel(this.netId, newLevel, () => {
-				callback();
-			}, );
+			this.service.setCharacteristic(Characteristic.LockCurrentState,1);
 		}
 		 else {
 			// lockState === false, ie. turn off
 			this._log(FILE_ID, `setState(false)`, `changing to 'off'`);
-
-			this.client.setLevel(this.netId, newLevel, () => {
-				callback();
-			}, );
+			this.service.setCharacteristic(Characteristic.LockCurrentState,1);
 			}
 	}
 }
