@@ -91,13 +91,14 @@ You must register devices by hand in a config file, however to make this easier 
 
 The platform definition in the `config.json` file contains an `accessories` array, which defines the available accessories using the following keys:
 
-* `type`: (required) type of the accessory. The valid values are "light", "switch", "dimmer", "shutter", "motion", "security" and "trigger".
+* `type`: (required) type of the accessory. The valid values are "light", "switch", "dimmer", "shutter", "motion", "security", "trigger" and "lock".
 * `name`: (required) name of the accessory (e.g. "Living Room Light", "Bedroom Light", "Living Room Curtain" etc.)
 * `network`: (optional, defaults to `client_network`) C-Bus network address of the device
 * `application`: (optional, defaults to `client_application`) The C-Bus Application address of the device
 * `id`: (required) C-Bus address of the device — every accessory in C-Bus has one
-* `invert`: (optional, defaults to false) only used by the shutter relay accessory and indicates that the shutter has been wired to open when commanded closed and vice versa
+* `invert`: (optional, defaults to false) used by the shutter relay and lock accessories and indicates that the device has been wired to open/lock when commanded closed and vice versa
 * `activeDuration`: (optional) only used by the switch accessory, indicating a timeout period, after which the switch will automatically switch off. This allows a HomeKit switch accessory to be used to generate a *Bell Press* event.
+* `autoReLockAfter`: (optional, default no automatic re-lock) only used by the lock accessory, indicating a time period after which the lock will automatically lock after an unlock command.
 * `rampDuration`: (optional, maximum 17 minutes) only used by the dimmer accessory, indicating the ramp up/down time when dimming.
 * `enabled`: (optional, default: true) set to false to inhibit the accessory from loading.
 * `action`: (required by the trigger accessory) sets the action selector to be triggered. 
@@ -153,7 +154,7 @@ The platform definition in the `config.json` file contains an `accessories` arra
         
         { "type": "trigger", "application": 202, "id": 0, "action": 1, "name": "recall preset 2" }
 	
-	{ "type": "lock", "application": 56, "id": 0, "name": "Door Lock" }
+	{ "type": "lock", "application": 56, "id": 0, "name": "Door Lock", "invert": "true", "autoReLockAfter": "2s" }
       ]
     }
   ],
