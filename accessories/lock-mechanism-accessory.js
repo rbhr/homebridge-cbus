@@ -26,6 +26,7 @@ function CBusLockAccessory(platform, accessoryData) {
 	//--------------------------------------------------
 	// Time to do some checking
 	this.checkState = false;
+	this.invert = accessoryData.invert || 'false';
 
 	//--------------------------------------------------
 	// register the on-off service
@@ -67,30 +68,19 @@ CBusLockAccessory.prototype.setState = function(lockState, callback, context) {
 		callback();
 	} else {
 		console.assert((lockState === 1) || (lockState === 0) || (lockState === true) || (lockState === false));
-		const lockingState = this.checkState;
-		this.checkState = (lockState === 1) || (lockState === true);
-
-		if (lockingState === this.checkState) {
-			this._log(FILE_ID, `setState`, `no state change from ${lockState}`);
-			callback();
-		} else if (lockState) {
-			const newLevel = lockState ? this.checkState : 0;
-			this._log(FILE_ID, `setState(true)`, `changing to 'on'`);
+		if (lockState) {
 			this.client.lockState(this.netId, () => {
 				this.service.setCharacteristic(Characteristic.LockCurrentState,1);
 				callback();
 			});
-		}
-		 else {
-			// lockState === false, ie. turn off
-			this._log(FILE_ID, `setState(false)`, `changing to 'off'`);
+		} else {
 			this.client.unlockState(this.netId, () => {
 				this.service.setCharacteristic(Characteristic.LockCurrentState,0);
 				callback();
 			});
 			}
 	}
-}
+};
 
 CBusLockAccessory.prototype.processClientData = function (err, message) {
 	if (!err) {
@@ -98,4 +88,4 @@ CBusLockAccessory.prototype.processClientData = function (err, message) {
 		const level = message.level;
 	}
 
-	}
+};
