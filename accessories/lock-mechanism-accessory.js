@@ -5,7 +5,9 @@ let Characteristic;
 let CBusAccessory;
 let uuid;
 
-const cbusUtils = require('../lib/cbus-utils.js');
+let cbusUtils = require('../lib/cbus-utils.js');
+
+const ms = require('ms');
 
 const FILE_ID = cbusUtils.extractIdentifierFromFileName(__filename);
 
@@ -24,9 +26,17 @@ function CBusLockAccessory(platform, accessoryData) {
 	CBusAccessory.call(this, platform, accessoryData);
 
 	//--------------------------------------------------
+	// if we have an autoReLockAfter specified, stash it away
+	if (typeof accessoryData.autoReLockAfter !== `undefined`) {
+		this.autoReLockAfter = ms(accessoryData.autoReLockAfter);
+		this._log(FILE_ID, `construct`, `automatically relock after ${this.autoReLockAfter}ms when activated via homebridge`);
+	}
+
+	//--------------------------------------------------
 	// Time to do some checking
 	this.checkState = false;
 	this.invert = accessoryData.invert || 'false';
+
 
 	//--------------------------------------------------
 	// register the on-off service
@@ -46,10 +56,10 @@ CBusLockAccessory.prototype.getState = function(callback) {
 	this._log("Getting current state...");
 	this.client.receiveLevel(this.netId, message => {
 		this.checkState = message.level > 0;
-		this._log(FILE_ID, `getOn`, `status = '${this.checkState ? `locked` : `unlocked`}'`);
+		this._log(FILE_ID, `getOn`, `status = '${this.checkState ? `on` : `off`}'`);
 		callback(false, this.checkState ? 1 : 0);
 	}, `getState`);
-};
+}
 
 		//--------------------------------------------------
 		// Guidelines for LockMechanism's Characteristics
@@ -63,23 +73,57 @@ CBusLockAccessory.prototype.getState = function(callback) {
 		//Characteristic.LockTargetState.SECURED = 1;
 
 CBusLockAccessory.prototype.setState = function(lockState, callback, context) {
+	let lock = 100;
+	let unlock = 0;
+
 	if (context === `event`) {
 		// context helps us avoid a never-ending loop
 		callback();
 	} else {
 		console.assert((lockState === 1) || (lockState === 0) || (lockState === true) || (lockState === false));
-		if (lockState) {
-			this.client.lockState(this.netId, () => {
-				this.service.setCharacteristic(Characteristic.LockCurrentState,1);
+		const wasLocked = this.checkState;
+		this.checkState = (lockState === 1) || (lockState === true);
+
+
+		if (wasLocked === this.checkState) {
+			this._log(FILE_ID, `setState`, `no state change from ${lockState}`);
+			callback();
+		}
+
+		else if (lockState) {
+			if (this.invert === 'true') {
+				const invertlock = 100 - lock;
+				lock = invertlock;
+			}
+
+			this.client.setLevel(this.netId, lock, () => {
 				callback();
 			});
 		} else {
-			this.client.unlockState(this.netId, () => {
-				this.service.setCharacteristic(Characteristic.LockCurrentState,0);
+			if (this.invert === 'true') {
+				const invertunlock = 100 + unlock;
+				unlock = invertunlock;
+			}
+
+			this.client.setLevel(this.netId, unlock, () => {
+				if (this.autoReLockAfter) {
+					this.timeout = setTimeout(() => {
+						this._log(FILE_ID, `activity timer expired`, `relocking`);
+						this.checkState = true;
+						this.client.setLevel(this.netId, lock);
+					}, this.autoReLockAfter);
+					this._log(FILE_ID, `activity timer activated`, `will relock in ${ms(this.autoReLockAfter)} (${this.autoReLockAfter}ms)`);
+				}
 				callback();
 			});
 			}
-	}
+		}
+
+// if we turn off (regardless of whether by homebridge or cbus), clear out any timeout
+if (!lockState && this.timeout) {
+	this._log(FILE_ID, `turned off`, `clearing activity timer`);
+	clearTimeout(this.timeout);
+}
 };
 
 CBusLockAccessory.prototype.processClientData = function (err, message) {
